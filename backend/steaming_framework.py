@@ -11,13 +11,14 @@ MAX_Z = 43
 
 class SteamingFramework:
     def __init__(self, port, baudrate, timeout):
-        # self.ser = serial.Serial(port=port, baudrate=baudrate, timeout=timeout)
-        self.estop = True
-        # self.startup()
-        # time.sleep(2)
+        self.ser = serial.Serial(port=port, baudrate=baudrate, timeout=timeout)
+        self.estop = False
+        self.startup()
+        time.sleep(2)
         pass
 
     def startup(self):
+        self.estop = False
         self.ser.write(b'\r\n\r\n')
         time.sleep(2)
         
@@ -49,7 +50,7 @@ class SteamingFramework:
         
         #move to starting position for process
         self.send_command("G0  X125 Y-55 Z8")
-        self.estop = False
+        
         
 
     def wait_until_idle(self):
@@ -87,12 +88,12 @@ class SteamingFramework:
         while units > 0:
             #engage steamer
             
-            deg_of_rot = deg_of_rotation
-            while deg_of_rot > 1:
-                self.send_command(f'$J=G21 G91 Y-42 F{y_feed_rate}')
+            current_deg_of_rot = 360
+            while current_deg_of_rot > 1:
+                self.send_command(f'$J=G21 G91 Y42 F{y_feed_rate}')
                 self.wait_until_idle()
                 time.sleep(0.2)
-                self.send_command(f'$J=G21 G91 Y42 F{y_feed_rate}')
+                self.send_command(f'$J=G21 G91 Y-42 F{y_feed_rate}')
                 self.wait_until_idle()
                 time.sleep(0.2)
                 
@@ -101,14 +102,14 @@ class SteamingFramework:
                 self.send_command(f'$J=G21 G91 Z-2 F1200')
                 
                 ###
-                deg_of_rot = deg_of_rot - 180
+                current_deg_of_rot = current_deg_of_rot - deg_of_rotation
             
             self.send_command(f'$J=G21 G91 X31 F{x_feed_rate}')
             units = units -1
         
         
-        self.send_command(f'$J=G21 G91 X-155 Y-90 F1500')
-        self.close()
+        self.send_command(f'$J=G21 G91 X-155 Y-40 F1500')
+        
         ####
     def send_command(self, cmd):
         if self.estop:
@@ -120,7 +121,7 @@ class SteamingFramework:
             response = self.ser.readline().decode().strip()
             print("Response:", response)
 
-
+    
     def emergency_stop(self, reason="E-stop activated"):
         self.estop = True
         try:

@@ -3,6 +3,7 @@ from PySide6.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, Q
 from PySide6.QtCore import Qt
 from backend.steaming_framework import SteamingFramework
 from backend.config import steamer_config
+import threading
 
 class BackEnd:
     def __init__(self, steam_config):
@@ -73,6 +74,10 @@ class Window(QWidget):
             QPushButton#estopButton:hover {
                 background-color: #C0392B;
             }
+            
+            QPushButton#reset {
+                background-color: #E74C3C;
+            }
         """)
 
         self.title_label = QLabel("STEAM PROCESS CONTROLLER")
@@ -84,6 +89,9 @@ class Window(QWidget):
 
         self.estop_button = QPushButton("EMERGENCY STOP")
         self.estop_button.setObjectName("estopButton")
+        
+        self.reset_button = QPushButton("Reset")
+        self.reset_button.setObjectName("reset")
 
         button_layout = QHBoxLayout()
         button_layout.addStretch()
@@ -91,6 +99,7 @@ class Window(QWidget):
         button_layout.addSpacing(40)
         button_layout.addWidget(self.estop_button)
         button_layout.addStretch()
+        button_layout.addWidget(self.reset_button)
 
         main_layout = QVBoxLayout()
         main_layout.addStretch()
@@ -103,12 +112,17 @@ class Window(QWidget):
 
         self.start_button.clicked.connect(self.handle_button_click)
         self.estop_button.clicked.connect(self.handle_emergency_stop)
-
+        self.reset_button.clicked.connect(self.backend.steam_controller.startup)
+        return 
+    
     def handle_button_click(self):
-        self.backend.start_steaming_process(steamer_config["units"], steamer_config["x_feed_rate"],steamer_config["y_feed_rate"], steamer_config["deg_of_rotation"])
-
+        thread = threading.Thread(target=self.backend.start_steaming_process, args=(steamer_config["units"], steamer_config["x_feed_rate"],steamer_config["y_feed_rate"], steamer_config["deg_of_rotation"]), daemon=False)
+        thread.start()
+        return
+    
     def handle_emergency_stop(self):
         self.backend.steam_controller.emergency_stop()
+        return 
     
 app = QApplication(sys.argv)
 window = Window(steamer_config)

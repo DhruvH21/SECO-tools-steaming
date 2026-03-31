@@ -5,5 +5,5 @@ steamer_config = {
     "y_feed_rate": 1000,
     "deg_of_rotation": 180,
     "units": 5,
-    "port": "/dev/cu.usbserial-110"
+    "port": "/dev/cu.usbserial-210"
 }
