@@ -117,7 +117,7 @@ class SteamingFramework:
             units = units -1
         
         
-        self.send_command(f'$J=G21 G91 X-155 Y-40 F1500')
+        self.send_command(f'$J=G21 G91 X-20 Y-40 F1500')
         
         ####
     def send_command(self, cmd):
