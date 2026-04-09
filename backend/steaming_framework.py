@@ -14,10 +14,12 @@ class SteamingFramework:
         self.ser = serial.Serial(port=port, baudrate=baudrate, timeout=timeout)
         self.estop = False
         self.startup()
+        self.pause_state = False
         time.sleep(2)
         pass
 
     def startup(self):
+        self.send_command(f"M5")
         self.estop = False
         self.ser.write(b'\r\n\r\n')
         time.sleep(2)
@@ -27,6 +29,7 @@ class SteamingFramework:
         self.ser.reset_output_buffer()
         
         #status check
+    
         self.send_command("?")
         time.sleep(2)
         
@@ -49,8 +52,9 @@ class SteamingFramework:
         self.send_command("G94")
         
         #move to starting position for process
-        self.send_command("G0  X125 Y-55 Z8")
-        
+        print("moving to start pos")
+        self.send_command("G0  X43.07 Y-48 Z8")
+        print("moved to start pos")
         
 
     def wait_until_idle(self):
@@ -63,7 +67,7 @@ class SteamingFramework:
                     return
             time.sleep(0.1)
         
-    def run_process(self, units, x_feed_rate, y_feed_rate , deg_of_rotation):
+    def run_process(self, units, x_feed_rate, y_feed_rate , deg_of_rotation, pause_event):
         """
         This function is responsible for running the entire steam cycle autonomously.
         Units specifies rhe number of tools being steamed.
@@ -71,10 +75,10 @@ class SteamingFramework:
         y_feed_rate specifies the speed of the y movement with a maximum of 1800. 
         deg_of_rotation  specifies how much the tool will rotate per steam cycle(must be a multiple of 360).
         """
-        if self.estop:
+        if self.estop:                 #checking for emergency stop, no process can run when emergency stop is on.
             print("CANNOT RUN PROGRAM NOW")
             return
-        if x_feed_rate > 1800 or y_feed_rate > 1800:
+        if x_feed_rate > 1800 or y_feed_rate > 1800:  #check that inputted feed 
             print("x or y feed rates EXCEED 1800, UNSAFE TO RUN, STOPPING PROGRAM")
             self.ser.write(b'\x18')
             raise RuntimeError("unsafe x or y feed rates specified in config")
@@ -85,26 +89,31 @@ class SteamingFramework:
             raise RuntimeError("unsafe degrees of rotation")
 
         ###move along tool length
-        while units > 0:
+        while units > 0 and pause_event.wait():
             #engage steamer
             
             current_deg_of_rot = 360
             while current_deg_of_rot > 1:
+                #pause_event.wait()
+                self.send_command('M3 S1000')
+                time.sleep(1)
                 self.send_command(f'$J=G21 G91 Y42 F{y_feed_rate}')
                 self.wait_until_idle()
-                time.sleep(0.2)
+                #pause_event.wait()
+                #time.sleep(0.2)
                 self.send_command(f'$J=G21 G91 Y-42 F{y_feed_rate}')
-                self.wait_until_idle()
+                #self.wait_until_idle()
                 time.sleep(0.2)
                 
                 #Enter rotation code here
-                self.send_command(f'$J=G21 G91 Z2 F1200')
-                self.send_command(f'$J=G21 G91 Z-2 F1200')
+                self.send_command(f'M5')
+                self.send_command(f'$J=G21 G91 A11.765 F1700')
+                #self.send_command(f'$J=G21 G91 -2 F1200')
                 
                 ###
                 current_deg_of_rot = current_deg_of_rot - deg_of_rotation
             
-            self.send_command(f'$J=G21 G91 X31 F{x_feed_rate}')
+            self.send_command(f'$J=G21 G91 X-10 F{x_feed_rate}')
             units = units -1
         
         
@@ -121,6 +130,22 @@ class SteamingFramework:
             response = self.ser.readline().decode().strip()
             print("Response:", response)
 
+    def pause(self):
+        try:
+            if self.ser.is_open:
+                self.ser.write(b'!')
+                self.pause_state = True
+        except Exception as e:
+            print(f"Could not pause machine with exception: {e}")
+    
+    def resume(self):
+        try:
+            if self.ser.is_open and self.pause_state:
+                self.ser.write(b'~')
+                self.pause_state = False
+        except Exception as e:
+            print(f"Could not unpause machine with exception: {e}")
+    
     
     def emergency_stop(self, reason="E-stop activated"):
         self.estop = True
